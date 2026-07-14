@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Done · {{.Session.Product}}</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>Run complete</h1>
+    <p class="sub">{{.Session.Title}}</p>
+  </header>
+
+  <section class="card">
+    <h2>Output written</h2>
+    <p>Session folder:</p>
+    <pre class="path">{{.Session.OutputDir}}</pre>
+    <ul class="filelist">
+      <li><code>Report.md</code> — Obsidian report</li>
+      <li><code>results.xlsx</code> — calculated tabular data</li>
+      <li><code>session.json</code> — machine-readable record</li>
+      <li><code>evidence/</code> — drop bench photos here (correlate by timestamp)</li>
+    </ul>
+  </section>
+
+  {{if .Instructions}}
+  <section class="card">
+    <h2>Manual close-out steps</h2>
+    <ol class="steps">
+      {{range .Instructions}}<li>{{.}}</li>{{end}}
+    </ol>
+  </section>
+  {{end}}
+
+  <section class="card">
+    <h2>Ambient — import AZ 88163 log</h2>
+    <p class="muted">Export the logger's tab-delimited file (its tool → Convert to Excel), then upload it here. Ambient T/RH/Baro is merged into every record by timestamp — no re-typing.</p>
+    {{if .AmbientMsg}}<div class="banner">{{.AmbientMsg}}</div>{{end}}
+    <form method="post" action="/import-ambient" enctype="multipart/form-data" class="actions">
+      <input type="file" name="file" accept=".csv,.txt" required>
+      <button type="submit" class="ghost">Import ambient</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Photos &amp; evidence</h2>
+    <p class="muted">Drop bench photos into the session's <code>evidence/photos/</code> folder; they correlate to records by the UTC capture timestamp (name them with the record ID, e.g. <code>{{.Session.Product}}_B-02_…</code>). Instrument screenshots → <code>evidence/screenshots/</code>, logger exports → <code>evidence/instrument-logs/</code>.</p>
+  </section>
+
+  <section class="card">
+    <h3>Records ({{len .Records}})</h3>
+    <table class="results">
+      <thead><tr><th>ID</th><th>Title</th><th>Captured (UTC)</th><th>Verdict</th><th>Note</th></tr></thead>
+      <tbody>
+      {{range .Records}}
+        <tr class="v-{{.Verdict}}">
+          <td>{{.ID}}</td><td>{{.Title}}</td>
+          <td>{{.CapturedAt.Format "2006-01-02 15:04:05"}}</td>
+          <td>{{.Verdict}}</td><td>{{.VerdictNote}}</td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </section>
+
+  <div class="actions">
+    <a class="primary" href="/">Home — new test or resume another</a>
+  </div>
+</main>
+</body>
+</html>

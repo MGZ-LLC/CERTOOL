@@ -1,0 +1,9 @@
+# certool Windows instrument bridge — Python dependencies (installed into
+# a local .venv by install.bat). pyvisa uses a system VISA runtime if present
+# (Keysight IO Libraries / NI-VISA), else falls back to pyvisa-py + libusb.
+pyvisa>=1.14
+pyvisa-py>=0.7
+pyusb>=1.2
+libusb-package>=1.0
+psutil>=5.9
+zeroconf>=0.130

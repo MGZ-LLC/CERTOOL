@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setup · {{.App.Name}}</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>{{.App.Name}}</h1>
+    <p class="sub">{{.App.Standard}}</p>
+    <p><a class="back" href="/">&larr; back</a></p>
+  </header>
+
+  <form class="card" method="post" action="/start">
+    <input type="hidden" name="app" value="{{.App.ID}}">
+
+    <h2>Equipment under test</h2>
+    <div class="grid">
+      <label>Product / version <input name="product" placeholder="Sample Unit 1.0" required></label>
+      <label>Serial number <input name="serial"></label>
+      <label>Config reference <input name="config_ref" placeholder="e.g. CFG-001"></label>
+      <label>Wiring record (frozen) <input name="wiring_ref" placeholder="e.g. wiring rev A"></label>
+    </div>
+
+    <h2>Session</h2>
+    <div class="grid">
+      <label>Tester <input name="operator"></label>
+      <label>Witness <input name="witness"></label>
+      <label>Location <input name="location" placeholder="lab bench"></label>
+      <label>Title <input name="title" placeholder="(auto)"></label>
+    </div>
+
+    <h2>Instrument connector</h2>
+    <div class="grid">
+      <label>Connector
+        <select name="connector">
+          {{range .Connectors}}<option value="{{.}}">{{.}}</option>{{end}}
+        </select>
+      </label>
+      <label>Address / port <input name="addr" placeholder="(auto — e.g. /dev/ttyUSB0 or COM3)"></label>
+    </div>
+    <p class="muted">If the instrument is unavailable, the tool falls back to smart manual entry (expected values pre-filled).</p>
+
+    <h2>Test parameters</h2>
+    <div class="grid">
+      {{range .SetupFields}}
+      <label class="{{if eq .Type "text"}}wide{{end}}">
+        {{.Label}}{{if .Unit}} ({{.Unit}}){{end}}
+        {{if eq .Type "text"}}
+        <textarea name="setup_{{.Key}}" rows="8">{{.ExpectedText}}</textarea>
+        {{else}}
+        <input name="setup_{{.Key}}" type="number" step="any" value="{{fmtExpected .}}">
+        {{end}}
+        {{if .Help}}<small class="help">{{.Help}}</small>{{end}}
+      </label>
+      {{end}}
+    </div>
+
+    <div class="actions">
+      <button type="submit" class="primary">Begin run</button>
+    </div>
+  </form>
+</main>
+</body>
+</html>

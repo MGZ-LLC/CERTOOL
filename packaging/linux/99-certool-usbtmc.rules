@@ -1,0 +1,9 @@
+# certool — grant the 'plugdev' group read/write on USBTMC instruments so the
+# tool can talk SCPI without root. Covers the generic USBTMC device nodes plus
+# the Keysight and Rigol vendor IDs. Install to /etc/udev/rules.d/.
+KERNEL=="usbtmc[0-9]*", MODE="0660", GROUP="plugdev"
+SUBSYSTEM=="usbmisc", KERNEL=="usbtmc[0-9]*", MODE="0660", GROUP="plugdev"
+# Keysight Technologies
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="2a8d", MODE="0660", GROUP="plugdev"
+# Rigol Technologies
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="1ab1", MODE="0660", GROUP="plugdev"

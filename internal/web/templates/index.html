@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CERTOOL</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>campaign&#8209;tool</h1>
+    <p class="sub">Test-campaign data capture · platform-agnostic bench recorder</p>
+  </header>
+
+  {{if .Resumes}}
+  <section class="card resume">
+    <h2>Resume a suspended test</h2>
+    <p class="muted">Un-finished sessions — all setup and captured records saved, nothing to retype. Pick one, or start a new test below.</p>
+    {{range .Resumes}}
+    <div class="resumebar">
+      <div>
+        <div class="resumeproduct">{{.Product}} <span class="muted">· {{.TestApp}}</span></div>
+        <div class="muted">{{.Measured}} measured · {{.Pending}} pending · saved {{.When}}</div>
+      </div>
+      <a class="primary" href="/resume?id={{.ID}}">Resume &rarr;</a>
+    </div>
+    {{end}}
+  </section>
+  {{end}}
+
+  <section class="card">
+    <h2>Start a test</h2>
+    <p class="muted">Choose a test application. Each defines its own run sheet, expected values and report.</p>
+    <ul class="applist">
+      {{range .Apps}}
+      <li>
+        <a class="appitem" href="/setup?app={{.ID}}">
+          <span class="appname">{{.Name}}</span>
+          <span class="appstd">{{.Standard}}</span>
+          <span class="appdesc">{{.Description}}</span>
+        </a>
+      </li>
+      {{else}}
+      <li class="muted">No test apps registered.</li>
+      {{end}}
+    </ul>
+  </section>
+</main>
+</body>
+</html>

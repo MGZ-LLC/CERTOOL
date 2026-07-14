@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{if .HasCurrent}}{{.Spec.ID}}{{else}}Run{{end}} · {{.Session.Product}}</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<main class="wrap">
+  <header class="runhead">
+    <div>
+      <h1>{{.Session.Product}} <span class="muted">· {{.Session.TestApp}}</span></h1>
+      <p class="sub">Connector: {{.Connector}}
+        {{if not .Available}}<span class="badge warn">manual fallback</span>{{end}}
+      </p>
+    </div>
+    <div class="progress">{{.Measured}} measured · {{.Pending}} pending</div>
+  </header>
+
+  {{if .ConnectError}}<div class="banner warn">Instrument not connected: {{.ConnectError}} — using smart manual entry.</div>{{end}}
+
+  {{if .HasCurrent}}
+  <section class="card capture">
+    <div class="cardhead">
+      <h2>{{.Spec.ID}} — {{.Spec.Title}}</h2>
+      {{if .Spec.Marker}}<span class="badge info">marker</span>{{end}}
+      {{if not .Spec.Marker}}<span id="status" class="statuslight ready">● Powered · ready</span>{{end}}
+    </div>
+    {{if .Spec.Note}}<p class="note">{{.Spec.Note}}</p>{{end}}
+    {{if .Spec.DeviceSettings}}
+    <p class="settings">Instrument settings for this step:
+      {{range $k, $v := .Spec.DeviceSettings}}<code>{{$k}}={{$v}}</code> {{end}}
+      {{if .CanApply}}<button type="button" id="apply" class="ghost">re-apply (a)</button>{{end}}
+    </p>
+    {{end}}
+
+    <form method="post" action="/commit" id="capform">
+      <div class="fields">
+        {{range .Spec.Fields}}
+        <div class="field {{.Source}}">
+          <label for="f_{{.Key}}">{{.Label}}{{if .Unit}} <span class="unit">({{.Unit}})</span>{{end}}</label>
+          {{if eq .Type "bool"}}
+            <input type="checkbox" id="f_{{.Key}}" name="f_{{.Key}}">
+          {{else if eq .Type "choice"}}
+            <select id="f_{{.Key}}" name="f_{{.Key}}">{{range .Choices}}<option>{{.}}</option>{{end}}</select>
+          {{else if eq .Type "number"}}
+            <input type="number" step="any" id="f_{{.Key}}" name="f_{{.Key}}"
+              {{if .DeviceChannel}}data-channel="{{.DeviceChannel}}"{{end}}
+              {{if .Expected}}data-expected="{{fmtExpected .}}"{{end}}
+              {{if .ReadOnly}}readonly{{end}}
+              {{if and (ne .Source "device") (ne .Source "computed") .Expected}}value="{{fmtExpected .}}"{{end}}
+              placeholder="{{if fmtExpected .}}expected {{fmtExpected .}}{{end}}">
+          {{else}}
+            <input type="text" id="f_{{.Key}}" name="f_{{.Key}}" value="{{.ExpectedText}}" placeholder="{{.Help}}">
+          {{end}}
+          {{if .Help}}<small class="help">{{.Help}}</small>{{end}}
+        </div>
+        {{end}}
+      </div>
+
+      <div class="markerrow">
+        <label class="inline"><input type="checkbox" name="photo" value="1"> Photo taken now (timestamp will match this record)</label>
+        <input type="text" name="photo_note" placeholder="photo note (optional)" class="photonote">
+      </div>
+
+      <div class="actions">
+        {{if .CanRead}}<button type="button" id="read" class="ghost">Read device (r)</button>{{end}}
+        <button type="submit" class="primary" id="commit">Commit &amp; next &nbsp;<kbd>Enter</kbd></button>
+        <a class="ghost" href="/suspend" title="Progress is saved; resume from the home screen">Pause</a>
+        <a class="ghost danger" href="/finish">Finish &amp; write report</a>
+      </div>
+    </form>
+  </section>
+  {{else}}
+  <section class="card">
+    <h2>No pending points</h2>
+    <p class="muted">All queued points are measured. Add another point below, re-measure one, pause, or finish.</p>
+    <div class="actions">
+      <a class="primary" href="/finish">Finish &amp; write report</a>
+      <a class="ghost" href="/suspend">Pause (saved)</a>
+    </div>
+  </section>
+  {{end}}
+
+  {{if .PointFields}}
+  <section class="card">
+    <details>
+      <summary><strong>Add a point</strong> (incremental — appended to the queue)</summary>
+      <form method="post" action="/addpoint" class="addpoint">
+        <div class="fields">
+          {{range .PointFields}}
+          <div class="field">
+            <label for="p_{{.Key}}">{{.Label}}{{if .Unit}} <span class="unit">({{.Unit}})</span>{{end}}</label>
+            {{if eq .Type "bool"}}
+              <input type="checkbox" id="p_{{.Key}}" name="p_{{.Key}}">
+            {{else if eq .Type "number"}}
+              <input type="number" step="any" id="p_{{.Key}}" name="p_{{.Key}}">
+            {{else}}
+              <input type="text" id="p_{{.Key}}" name="p_{{.Key}}" placeholder="{{.Help}}">
+            {{end}}
+            {{if .Help}}<small class="help">{{.Help}}</small>{{end}}
+          </div>
+          {{end}}
+        </div>
+        <div class="actions"><button type="submit" class="ghost">Add point</button></div>
+      </form>
+    </details>
+  </section>
+  {{end}}
+
+  {{if .Session.Records}}
+  <section class="card">
+    <h3>Records ({{len .Session.Records}} — append-only)</h3>
+    <table class="results">
+      <thead><tr><th>ID</th><th>Att</th><th>Title</th><th>Captured (UTC)</th><th>Verdict</th><th></th></tr></thead>
+      <tbody>
+      {{range .Session.Records}}
+        <tr class="v-{{.Verdict}} {{if .Superseded}}superseded{{end}}">
+          <td>{{.ID}}</td><td>{{.Attempt}}</td><td>{{.Title}}</td>
+          <td>{{.CapturedAt.Format "15:04:05"}}</td>
+          <td>{{.Verdict}}{{if .Superseded}} <span class="muted">(superseded)</span>{{end}}</td>
+          <td>{{if not .Superseded}}{{if not .Marker}}
+            <form method="post" action="/redo" class="inlineform">
+              <input type="hidden" name="id" value="{{.ID}}">
+              <button type="submit" class="ghost small">re-measure</button>
+            </form>
+          {{end}}{{end}}</td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </section>
+  {{end}}
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>

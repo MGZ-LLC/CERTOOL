@@ -1,0 +1,21 @@
+# Build artefacts
+/certool
+/certool.exe
+*.exe
+/dist/
+/packaging/windows/dist/
+/packaging/linux/dist/
+
+# Session output (generated at the bench; not source)
+/campaigns/
+/certool-campaigns/
+
+# Session-generated scratch utilities cache
+/tools/scratch/
+
+# Generated manual (rebuilt from md; keep the PDF though — see below)
+docs/*.docx
+
+# OS / editor
+.DS_Store
+*.swp
