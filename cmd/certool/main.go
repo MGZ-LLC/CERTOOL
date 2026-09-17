@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/MGZ-LLC/CERTOOL/internal/engine"
+	"github.com/MGZ-LLC/CERTOOL/internal/version"
 	"github.com/MGZ-LLC/CERTOOL/internal/web"
 
 	// Register the built-in test apps and connectors via their init().
@@ -36,7 +37,12 @@ func main() {
 	addr := flag.String("addr", "127.0.0.1:8787", "listen address (local only)")
 	out := flag.String("out", "campaigns", "output root directory for sessions")
 	noOpen := flag.Bool("no-open", false, "do not open a browser")
+	showVersion := flag.Bool("version", false, "print the release and exit")
 	flag.Parse()
+	if *showVersion {
+		fmt.Println(version.String())
+		return
+	}
 
 	root, err := filepath.Abs(*out)
 	if err != nil {

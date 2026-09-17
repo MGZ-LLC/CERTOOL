@@ -156,6 +156,16 @@ always reflect the latest state, including imported ambient and re-measurements.
   from `*IDN?`, plus the AZ logger; calibration dates left `____` for you.
 - **Results** — per point: conductor, expected mΩ, I, V, measured R, stable,
   attempt #, verdict, observation. Plus a **superseded/re-measured** table.
+- **Verdict rules** (earth continuity), checked in this order:
+  - **Fail** — open circuit or gross resistance (read-back current below 90 % of
+    the set current, or ≤ 0: the source hit its voltage limit), R ≤ 0, unstable
+    while flexing, or R above expected +50 %.
+  - **Investigate** — R > 100 mΩ with no fail condition.
+  - **Pass** — within expected +50 % and stable.
+  - **Not assessed** — a valid reading with no expected value (no CSA × length
+    given). It is never counted as a pass: any unassessed or unmeasured path
+    makes the overall verdict **Incomplete**.
+  - The Observation column carries the reason for every verdict other than Pass.
 - **Ambient & overall evidence** — baseline + merged logger summary.
 - **Overall verdict**, **evidence index** (record ↔ timestamp), and the vault
   record it feeds.

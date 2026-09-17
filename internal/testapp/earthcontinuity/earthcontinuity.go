@@ -16,6 +16,7 @@ import (
 
 	"github.com/MGZ-LLC/CERTOOL/internal/model"
 	"github.com/MGZ-LLC/CERTOOL/internal/testapp"
+	"github.com/MGZ-LLC/CERTOOL/internal/version"
 )
 
 // copperRhoMilliOhmMetre is ρ for copper at 20 °C expressed so that
@@ -364,32 +365,53 @@ func (app) Evaluate(spec model.RecordSpec, rec *model.Record) error {
 
 	rv, rok := numValue(rec, "R")
 	stable, sok := boolValue(rec, "stable")
+	setI, haveSetI := specExpected(spec, "I")
+	exp, haveExp := specExpected(spec, "R")
 
+	// Every fail condition is tested before the 100 mΩ investigate ceiling, so a
+	// failed path can never be reported as merely "investigate" — or as a pass.
+	rec.VerdictNote = ""
 	switch {
+	case iok && vok && (iv <= 0 || (haveSetI && setI > 0 && iv < openCircuitFraction*setI)):
+		// A constant-current source that cannot drive its set current has hit its
+		// voltage limit: the path is open or grossly resistive. V/I is then not a
+		// bond resistance — a near-zero I once turned an open circuit into a
+		// huge negative R that passed the expected+50 % comparison.
+		rec.Verdict = model.VerdictFail
+		drive := fmt.Sprintf("measured I %g A", iv)
+		if haveSetI && setI > 0 {
+			drive += fmt.Sprintf(" against %g A set", setI)
+		}
+		rec.VerdictNote = "Open circuit or gross resistance — " + drive + "; the source did not drive the test current. Re-seat the clips and re-measure (EN 60204-1 Cl. 18.2.2)."
 	case !rok:
 		rec.Verdict = model.VerdictPending
-	case rv > 100:
-		rec.Verdict = model.VerdictInvestigate
-		rec.VerdictNote = "R > 100 mΩ — investigate (EN 60204-1 Cl. 18)."
+	case rv <= 0:
+		rec.Verdict = model.VerdictFail
+		rec.VerdictNote = "R ≤ 0 is not a physical reading — check sense-lead polarity and connections, then re-measure."
 	case sok && !stable:
 		rec.Verdict = model.VerdictFail
 		rec.VerdictNote = "Reading unstable while flexing — bad bond (EN 60204-1 Cl. 18)."
+	case haveExp && rv > exp*1.5:
+		rec.Verdict = model.VerdictFail
+		rec.VerdictNote = fmt.Sprintf("R %.1f mΩ exceeds expected+50%% (%.1f mΩ).", rv, exp*1.5)
+	case rv > 100:
+		rec.Verdict = model.VerdictInvestigate
+		rec.VerdictNote = "R > 100 mΩ — investigate (EN 60204-1 Cl. 18)."
+	case haveExp:
+		rec.Verdict = model.VerdictPass
 	default:
-		if exp, ok := specExpected(spec, "R"); ok {
-			if rv <= exp*1.5 {
-				rec.Verdict = model.VerdictPass
-			} else {
-				rec.Verdict = model.VerdictFail
-				rec.VerdictNote = fmt.Sprintf("R %.1f mΩ exceeds expected+50%% (%.1f mΩ).", rv, exp*1.5)
-			}
-		} else {
-			// No computed expectation — leave for reviewer, flag if suspiciously high.
-			rec.Verdict = model.VerdictPass
-			rec.VerdictNote = "No computed expectation — verify against EN 60204-1 Cl. 18."
-		}
+		// Without an expectation the +50 % rule cannot be applied, so the record is
+		// neither a pass nor a fail and must not count as "within acceptance".
+		rec.Verdict = model.VerdictNotAssessed
+		rec.VerdictNote = "No expected value (conductor CSA × length not given) — not assessed against expected +50 %."
 	}
 	return nil
 }
+
+// openCircuitFraction is the share of the set test current below which a reading
+// is treated as an open circuit: a source in constant-current regulation reads
+// back its set current to well within this margin.
+const openCircuitFraction = 0.9
 
 func (a app) Report(s *model.Session) (string, error) {
 	var b strings.Builder
@@ -402,6 +424,7 @@ func (a app) Report(s *model.Session) (string, error) {
 	w("**Location:** %s\n", nz(s.Location, "____"))
 	w("**Tester:** %s   **Witness:** %s\n", nz(s.Operator, "____"), nz(s.Witness, "____"))
 	w("**Connector:** %s\n", s.Connector)
+	w("**Recorded with:** %s\n", version.String())
 	w("**Report status:** ☑ draft · ☐ complete · ☐ reviewed\n\n---\n\n")
 
 	w("## 1. Equipment under test (EUT)\n\n")
@@ -441,9 +464,9 @@ func (a app) Report(s *model.Session) (string, error) {
 			expectedCol(s, r.ID),
 			numCol(r, "I"), numCol(r, "V"), numCol(r, "R"),
 			boolCol(r, "stable"), r.Attempt,
-			verdictLabel(r.Verdict), textVal(r, "note"))
+			verdictLabel(r.Verdict), observation(r))
 	}
-	w("\nAcceptance: within expected **+50 %%** and stable = pass; **> 100 mΩ** investigate; open/unstable/gross = fail (EN 60204-1 Cl. 18).\n\n")
+	w("\nAcceptance: within expected **+50 %%** and stable = pass; **> 100 mΩ** investigate; open (source below 90 %% of set current), R ≤ 0, unstable or above expected +50 %% = fail; no expected value = not assessed (EN 60204-1 Cl. 18).\n\n")
 
 	// Audit trail: superseded (re-measured) attempts are never discarded.
 	var sup []model.Record
@@ -460,7 +483,7 @@ func (a app) Report(s *model.Session) (string, error) {
 			w("| %s | %d | %s | %s | %s | %s | %s | %s |\n",
 				r.ID, r.Attempt, r.CapturedAt.Format("2006-01-02 15:04:05"),
 				numCol(r, "I"), numCol(r, "V"), numCol(r, "R"),
-				verdictLabel(r.Verdict), textVal(r, "note"))
+				verdictLabel(r.Verdict), observation(r))
 		}
 		w("\n")
 	}
@@ -499,7 +522,7 @@ func (a app) Report(s *model.Session) (string, error) {
 // ---- helpers ----
 
 func overallVerdict(s *model.Session) string {
-	var fail, inv, judged int
+	var fail, inv, open, judged int
 	for _, r := range s.Records {
 		if r.Marker || r.Superseded {
 			continue
@@ -510,13 +533,22 @@ func overallVerdict(s *model.Session) string {
 			fail++
 		case model.VerdictInvestigate:
 			inv++
+		case model.VerdictNotAssessed, model.VerdictPending, "":
+			open++
 		}
 	}
 	switch {
 	case judged == 0:
 		return "☐ No judged records."
 	case fail > 0:
-		return fmt.Sprintf("☑ **Fail** — %d of %d path(s) failed.", fail, judged)
+		msg := fmt.Sprintf("☑ **Fail** — %d of %d path(s) failed.", fail, judged)
+		if open > 0 {
+			msg += fmt.Sprintf(" %d further path(s) not assessed or not measured.", open)
+		}
+		return msg
+	case open > 0:
+		// "within acceptance" is only true of paths that were judged against one.
+		return fmt.Sprintf("☐ **Incomplete** — %d of %d path(s) not assessed or not measured; no overall pass can be given.", open, judged)
 	case inv > 0:
 		return fmt.Sprintf("☐ Pass with %d path(s) to investigate.", inv)
 	default:
@@ -532,6 +564,8 @@ func verdictLabel(v model.Verdict) string {
 		return "**Fail**"
 	case model.VerdictInvestigate:
 		return "Investigate"
+	case model.VerdictNotAssessed:
+		return "Not assessed"
 	case model.VerdictInfo:
 		return "—"
 	default:
@@ -590,6 +624,19 @@ func boolCol(r model.Record, key string) string {
 		return "no"
 	}
 	return ""
+}
+
+// observation joins the operator's note with the verdict's own reason, so a report
+// row says WHY it failed or was not assessed, not only that it did.
+func observation(r model.Record) string {
+	var parts []string
+	if n := textVal(r, "note"); n != "" {
+		parts = append(parts, n)
+	}
+	if r.VerdictNote != "" {
+		parts = append(parts, r.VerdictNote)
+	}
+	return strings.Join(parts, " · ")
 }
 
 func textVal(r model.Record, key string) string {

@@ -77,6 +77,7 @@ const (
 	VerdictPass        Verdict = "pass"
 	VerdictInvestigate Verdict = "investigate"
 	VerdictFail        Verdict = "fail"
+	VerdictNotAssessed Verdict = "not-assessed" // measured, but no acceptance reference to judge it against
 	VerdictInfo        Verdict = "info" // non-judged records (ambient, overall photos)
 )
 
